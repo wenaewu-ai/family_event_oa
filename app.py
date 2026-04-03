@@ -22,9 +22,13 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# LINE SDK 設定
-configuration = Configuration(access_token=os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
-handler = WebhookHandler(os.environ["LINE_CHANNEL_SECRET"])
+# LINE SDK 設定 — 用 .get() 讓 app 能順利啟動，缺少 token 時只影響請求處理
+configuration = Configuration(
+    access_token=os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+)
+handler = WebhookHandler(
+    os.environ.get("LINE_CHANNEL_SECRET", "")
+)
 
 # 允許的群組 ID（空字串表示不限制）
 ALLOWED_GROUP_ID = os.environ.get("ALLOWED_GROUP_ID", "")
