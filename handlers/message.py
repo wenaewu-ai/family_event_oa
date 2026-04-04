@@ -39,14 +39,7 @@ def handle_message(event, line_bot_api: MessagingApi):
         ))
         return
 
-    state_data = get_state(user_id)
-    if not state_data:
-        return  # 非流程中的訊息，忽略
-
-    state = state_data["state"]
-    data  = state_data["data"]
-
-    # ── Quick Reply 特殊前綴處理 ─────────────────────────────
+    # ── Quick Reply 特殊前綴處理（不需要對話狀態）────────────
     # 公積金收支類型選擇
     if text.startswith("__fund_type__"):
         tx_type = text.replace("__fund_type__", "")
@@ -80,7 +73,6 @@ def handle_message(event, line_bot_api: MessagingApi):
                 messages=[TextMessage(text=f"✅ 已將「{family_unit}」標記為結清（共更新 {count} 筆）")]
             ))
 
-            # 推播通知群組
             if GROUP_ID:
                 try:
                     from utils.flex_builder import settled_push_notification
@@ -91,6 +83,13 @@ def handle_message(event, line_bot_api: MessagingApi):
                 except Exception as e:
                     logger.error(f"Settle push failed: {e}")
         return
+
+    state_data = get_state(user_id)
+    if not state_data:
+        return  # 非流程中的訊息，忽略
+
+    state = state_data["state"]
+    data  = state_data["data"]
 
     # ── 公積金：等待輸入金額與說明 ──────────────────────────
     if state == "await_fund_input":
