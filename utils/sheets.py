@@ -226,8 +226,8 @@ def mark_family_settled(event_id: str, family_unit: str, settled_by: str):
     rows = ws.get_all_values()
     header_row = 3  # 表頭在第3列
 
-    # 欄位索引（0-based）
-    headers = rows[header_row - 1]
+    # 欄位索引（0-based）— 去掉 \n(...) 說明後綴，與 update_event_status 一致
+    headers = [h.split("\n")[0] for h in rows[header_row - 1]]
     idx = {h: i for i, h in enumerate(headers)}
 
     updated = 0
