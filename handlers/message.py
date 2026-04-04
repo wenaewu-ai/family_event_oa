@@ -29,6 +29,7 @@ GROUP_ID = os.environ.get("ALLOWED_GROUP_ID", "")
 def handle_message(event, line_bot_api: MessagingApi):
     user_id  = event.source.user_id
     text     = event.message.text.strip()
+    logger.info(f"Message from user_id={user_id}")
     member   = get_member(user_id)
 
     if not member or not member.get("family_unit"):
