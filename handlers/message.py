@@ -82,6 +82,11 @@ def handle_message(event, line_bot_api: MessagingApi):
                     ))
                 except Exception as e:
                     logger.error(f"Settle push failed: {e}")
+        else:
+            line_bot_api.reply_message(ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text="⚠️ 發生錯誤，請重新操作。")]
+            ))
         return
 
     state_data = get_state(user_id)
@@ -118,8 +123,16 @@ def handle_message(event, line_bot_api: MessagingApi):
 
 def _handle_fund_input(event, line_bot_api, user_id, member, data, text):
     """格式：金額 說明　例如：5000 清明節採購"""
+    if text == "取消":
+        clear_state(user_id)
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="已取消操作。")]
+        ))
+        return
+
     parts = text.split(maxsplit=1)
-    if len(parts) < 2 or not parts[0].isdigit():
+    if len(parts) < 2 or not re.match(r'^[0-9]+$', parts[0]):
         line_bot_api.reply_message(ReplyMessageRequest(
             reply_token=event.reply_token,
             messages=[TextMessage(text=(
@@ -131,15 +144,17 @@ def _handle_fund_input(event, line_bot_api, user_id, member, data, text):
         ))
         return
 
-    if text == "取消":
-        clear_state(user_id)
+    amount      = int(parts[0])
+    if amount <= 0:
         line_bot_api.reply_message(ReplyMessageRequest(
             reply_token=event.reply_token,
-            messages=[TextMessage(text="已取消操作。")]
+            messages=[TextMessage(text=(
+                "⚠️ 金額必須大於 0，請重新輸入：\n\n"
+                "範例：5000 清明節採購費\n\n"
+                "輸入「取消」可中止操作。"
+            ))]
         ))
         return
-
-    amount      = int(parts[0])
     description = parts[1]
     tx_type     = data.get("type", "支出")
     operator    = member.get("display_name", "")
@@ -185,7 +200,7 @@ def _handle_expense_input(event, line_bot_api, user_id, member, data, text):
         return
 
     parts = text.split(maxsplit=1)
-    if len(parts) < 2 or not parts[0].isdigit():
+    if len(parts) < 2 or not re.match(r'^[0-9]+$', parts[0]):
         line_bot_api.reply_message(ReplyMessageRequest(
             reply_token=event.reply_token,
             messages=[TextMessage(text=(
@@ -231,7 +246,7 @@ def _handle_fund_subsidy(event, line_bot_api, user_id, member, data, text):
         ))
         return
 
-    if not text.isdigit():
+    if not re.match(r'^[0-9]+$', text):
         line_bot_api.reply_message(ReplyMessageRequest(
             reply_token=event.reply_token,
             messages=[TextMessage(text=(
