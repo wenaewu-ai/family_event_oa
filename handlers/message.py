@@ -35,7 +35,7 @@ def handle_message(event, line_bot_api: MessagingApi):
     if not member or not member.get("family_unit"):
         line_bot_api.reply_message(ReplyMessageRequest(
             reply_token=event.reply_token,
-            messages=[TextMessage(text="⚠️ 尚未設定家庭單位，請聯繫管理員。")]
+            messages=[TextMessage(text=f"⚠️ 尚未設定家庭單位，請聯繫管理員。\n\n你的 LINE ID：{user_id}")]
         ))
         return
 
