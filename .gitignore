@@ -1,6 +1,9 @@
 .env
+.env.*
 credentials.json
 __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+*.png
+*.png:Zone.Identifier
