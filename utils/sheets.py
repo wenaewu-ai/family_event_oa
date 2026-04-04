@@ -55,6 +55,11 @@ def _get_sheet(sheet_name: str):
     return spreadsheet.worksheet(sheet_name)
 
 
+def _normalize_records(rows: list[dict]) -> list[dict]:
+    """將表頭的 \\n(...) 說明文字去掉，例如 'line_user_id\\n(LINE userId)' → 'line_user_id'"""
+    return [{k.split("\n")[0]: v for k, v in r.items()} for r in rows]
+
+
 def now_str() -> str:
     return datetime.now().strftime("%Y/%m/%d %H:%M")
 
@@ -69,7 +74,7 @@ def get_all_members() -> list[dict]:
     if time.time() - _member_cache_time < CACHE_TTL and _member_cache:
         return list(_member_cache.values())
     ws = _get_sheet(SH_MEMBERS)
-    rows = ws.get_all_records()
+    rows = _normalize_records(ws.get_all_records(head=3))
     _member_cache = {r["line_user_id"]: r for r in rows if r.get("line_user_id")}
     _member_cache_time = time.time()
     return list(_member_cache.values())
@@ -103,7 +108,7 @@ def register_member(user_id: str, display_name: str):
 def get_fund_balance() -> dict:
     """取得目前公積金餘額與最後異動資訊"""
     ws = _get_sheet(SH_FUND)
-    rows = ws.get_all_records(head=4)  # 第4列為表頭
+    rows = _normalize_records(ws.get_all_records(head=4))  # 第4列為表頭
     if not rows:
         # 讀取期初餘額（E3）
         init = ws.acell("E3").value or "0"
@@ -125,7 +130,7 @@ def add_fund_transaction(tx_type: str, amount: int, description: str,
                           operator: str, ref_event_id: str = "") -> dict:
     """新增公積金收支記錄"""
     ws = _get_sheet(SH_FUND)
-    rows = ws.get_all_records(head=4)
+    rows = _normalize_records(ws.get_all_records(head=4))
 
     if rows:
         prev_balance = int(str(rows[-1].get("balance_after", 0)).replace(",", ""))
@@ -152,7 +157,7 @@ def add_fund_transaction(tx_type: str, amount: int, description: str,
 def get_events(status_filter: str = None) -> list[dict]:
     """取得活動列表"""
     ws = _get_sheet(SH_EVENTS)
-    rows = ws.get_all_records(head=3)
+    rows = _normalize_records(ws.get_all_records(head=3))
     if status_filter:
         rows = [r for r in rows if r.get("status") == status_filter]
     return rows
@@ -179,7 +184,7 @@ def create_event(event_id: str, event_name: str, event_date: str,
 
 def get_event_expenses(event_id: str) -> list[dict]:
     ws = _get_sheet(SH_EXPENSES)
-    rows = ws.get_all_records(head=3)
+    rows = _normalize_records(ws.get_all_records(head=3))
     return [r for r in rows if r.get("event_id") == event_id]
 
 
@@ -274,7 +279,7 @@ def calculate_split(event_id: str) -> dict:
 
 def get_state(user_id: str) -> Optional[dict]:
     ws = _get_sheet(SH_STATE)
-    rows = ws.get_all_records(head=3)
+    rows = _normalize_records(ws.get_all_records(head=3))
     now = datetime.now()
     for r in rows:
         if r.get("line_user_id") == user_id:
