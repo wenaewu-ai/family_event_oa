@@ -178,6 +178,20 @@ def create_event(event_id: str, event_name: str, event_date: str,
     return {"event_id": event_id, "event_name": event_name}
 
 
+def update_event_status(event_id: str, new_status: str) -> bool:
+    """更新活動狀態（進行中 / 已結束）"""
+    ws = _get_sheet(SH_EVENTS)
+    rows = ws.get_all_values()
+    header_row = 3
+    headers = [h.split("\n")[0] for h in rows[header_row - 1]]
+    idx = {h: i for i, h in enumerate(headers)}
+    for i, row in enumerate(rows[header_row:], start=header_row + 1):
+        if row and row[idx.get("event_id", 0)] == event_id:
+            ws.update_cell(i, idx["status"] + 1, new_status)
+            return True
+    return False
+
+
 # ─────────────────────────────────────────────────
 # 活動費用明細
 # ─────────────────────────────────────────────────

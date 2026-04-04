@@ -188,7 +188,7 @@ def _row(label: str, value: str) -> dict:
 # 活動費用明細卡片
 # ─────────────────────────────────────────────────
 
-def event_detail_card(event: dict, split: dict) -> FlexMessage:
+def event_detail_card(event: dict, split: dict, is_admin: bool = False) -> FlexMessage:
     family_rows = []
     for f in split["families"]:
         if f["is_settled"]:
@@ -279,27 +279,36 @@ def event_detail_card(event: dict, split: dict) -> FlexMessage:
             "spacing": "sm", "paddingAll": "12px",
             "contents": [
                 {
-                    "type": "box", "layout": "horizontal", "spacing": "sm",
-                    "contents": [
-                        {
-                            "type": "button", "style": "primary", "height": "sm",
-                            "flex": 1, "color": "#7B3F00",
-                            "action": {"type": "postback", "label": "📤 提交費用",
-                                       "data": f"action=submit_expense&event_id={event['event_id']}"}
-                        },
-                        {
-                            "type": "button", "style": "secondary", "height": "sm", "flex": 1,
-                            "action": {"type": "postback", "label": "✅ 標記結清",
-                                       "data": f"action=mark_settled&event_id={event['event_id']}"}
-                        },
-                    ]
+                    "type": "button", "style": "primary", "height": "sm",
+                    "color": "#7B3F00",
+                    "action": {"type": "postback", "label": "📤 提交費用",
+                               "data": f"action=submit_expense&event_id={event['event_id']}"}
                 },
-                {
-                    "type": "button", "style": "secondary", "height": "sm",
-                    "color": "#1E8449",
-                    "action": {"type": "postback", "label": "💰 公積金補貼",
-                               "data": f"action=fund_event_subsidy&event_id={event['event_id']}"}
-                },
+                *([
+                    {
+                        "type": "box", "layout": "horizontal", "spacing": "sm",
+                        "contents": [
+                            {
+                                "type": "button", "style": "secondary", "height": "sm", "flex": 1,
+                                "action": {"type": "postback", "label": "✅ 標記結清",
+                                           "data": f"action=mark_settled&event_id={event['event_id']}"}
+                            },
+                            {
+                                "type": "button", "style": "secondary", "height": "sm", "flex": 1,
+                                "color": "#1E8449",
+                                "action": {"type": "postback", "label": "💰 公積金補貼",
+                                           "data": f"action=fund_event_subsidy&event_id={event['event_id']}"}
+                            },
+                        ]
+                    },
+                    {
+                        "type": "button", "style": "secondary", "height": "sm",
+                        "color": "#922B21" if event.get("status") == "進行中" else "#1E8449",
+                        "action": {"type": "postback",
+                                   "label": "🔒 關閉活動" if event.get("status") == "進行中" else "🔓 重新開啟",
+                                   "data": f"action=toggle_event_status&event_id={event['event_id']}"}
+                    },
+                ] if is_admin else []),
             ]
         }
     }

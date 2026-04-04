@@ -251,10 +251,11 @@ def _handle_fund_subsidy(event, line_bot_api, user_id, member, data, text):
     add_fund_transaction("支出", amount, f"活動補貼：{event_name}", operator, event_id)
     clear_state(user_id)
 
+    from utils.sheets import is_admin as _is_admin
     split = calculate_split(event_id)
     line_bot_api.reply_message(ReplyMessageRequest(
         reply_token=event.reply_token,
-        messages=[event_detail_card(ev, split)]
+        messages=[event_detail_card(ev, split, is_admin=_is_admin(user_id))]
     ))
 
     if GROUP_ID:
