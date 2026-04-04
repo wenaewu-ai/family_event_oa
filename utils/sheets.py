@@ -236,7 +236,7 @@ def calculate_split(event_id: str) -> dict:
     """計算費用分攤"""
     expenses = get_event_expenses(event_id)
     if not expenses:
-        return {"total": 0, "families": [], "per_unit": 0}
+        return {"total": 0, "families": [], "per_unit": 0, "settled_count": 0, "total_families": 0}
 
     families: dict[str, dict] = {}
     for exp in expenses:
