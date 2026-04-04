@@ -15,7 +15,7 @@ from utils.sheets import (
     get_member, is_admin, get_state, set_state, clear_state,
     get_fund_balance, get_events, get_event,
     get_event_expenses, get_family_expenses,
-    calculate_split, mark_family_settled
+    calculate_split, mark_family_settled, get_event_fund_contribution
 )
 from utils.flex_builder import (
     fund_balance_card, event_list_carousel,
@@ -43,17 +43,18 @@ def handle_postback(event, line_bot_api: MessagingApi):
 
     # ── 路由 ────────────────────────────────────────────────
     dispatch = {
-        "view_fund":        _view_fund,
-        "view_fund_detail": _view_fund_detail,
-        "add_fund":         _add_fund,
-        "add_fund_type":    _add_fund_type,
-        "list_events":      _list_events,
-        "view_event":       _view_event,
-        "submit_expense":   _submit_expense,
-        "mark_settled":     _mark_settled,
-        "mark_settled_confirm": _mark_settled_confirm,
-        "my_records":       _my_records,
-        "create_event":     _create_event,
+        "view_fund":           _view_fund,
+        "view_fund_detail":    _view_fund_detail,
+        "add_fund":            _add_fund,
+        "add_fund_type":       _add_fund_type,
+        "list_events":         _list_events,
+        "view_event":          _view_event,
+        "submit_expense":      _submit_expense,
+        "mark_settled":        _mark_settled,
+        "mark_settled_confirm":_mark_settled_confirm,
+        "my_records":          _my_records,
+        "create_event":        _create_event,
+        "fund_event_subsidy":  _fund_event_subsidy,
     }
 
     handler_fn = dispatch.get(action)
@@ -249,6 +250,47 @@ def _mark_settled(event, line_bot_api, user_id, member, data):
 def _mark_settled_confirm(event, line_bot_api, user_id, member, data):
     """確認結清（由 message handler 的 __settle__ 前綴訊息觸發）"""
     pass  # 見 message.py 的 special prefix 處理
+
+
+# ─────────────────────────────────────────────────
+# 公積金補貼活動費用（管理員）
+# ─────────────────────────────────────────────────
+
+def _fund_event_subsidy(event, line_bot_api, user_id, member, data):
+    if not is_admin(user_id):
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="⚠️ 只有管理員可以設定公積金補貼。")]
+        ))
+        return
+
+    event_id = data.get("event_id", [""])[0]
+    ev = get_event(event_id)
+    if not ev:
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="找不到該活動，請重新選擇。")]
+        ))
+        return
+
+    split = calculate_split(event_id)
+    fund  = get_fund_balance()
+    already = get_event_fund_contribution(event_id)
+
+    set_state(user_id, "await_fund_subsidy", {"event_id": event_id})
+
+    already_text = f"（本活動已補貼 ${already:,}）\n" if already > 0 else ""
+    line_bot_api.reply_message(ReplyMessageRequest(
+        reply_token=event.reply_token,
+        messages=[TextMessage(text=(
+            f"💰 公積金補貼　─　{ev.get('event_name', '')}\n\n"
+            f"活動總費用：${split['total']:,}\n"
+            f"公積金餘額：${fund['balance']:,}\n"
+            f"{already_text}\n"
+            "請輸入本次補貼金額（數字）：\n\n"
+            "輸入「取消」可中止操作。"
+        ))]
+    ))
 
 
 # ─────────────────────────────────────────────────

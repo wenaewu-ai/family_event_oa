@@ -14,10 +14,10 @@ from linebot.v3.messaging import (
 from utils.sheets import (
     get_member, get_state, clear_state,
     add_fund_transaction, submit_expense,
-    get_event, get_events
+    get_event, get_events, calculate_split
 )
 from utils.flex_builder import (
-    fund_balance_card, fund_push_notification, my_expenses_card
+    fund_balance_card, fund_push_notification, my_expenses_card, event_detail_card
 )
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,10 @@ def handle_message(event, line_bot_api: MessagingApi):
     # ── 建立活動：等待輸入活動日期 ──────────────────────────
     elif state == "await_event_date":
         _handle_event_date(event, line_bot_api, user_id, member, data, text)
+
+    # ── 公積金補貼：等待輸入補貼金額 ────────────────────────
+    elif state == "await_fund_subsidy":
+        _handle_fund_subsidy(event, line_bot_api, user_id, member, data, text)
 
 
 # ─────────────────────────────────────────────────
@@ -212,6 +216,58 @@ def _handle_expense_input(event, line_bot_api, user_id, member, data, text):
         reply_token=event.reply_token,
         messages=[my_expenses_card(event_name, event_id, family_unit, expenses)]
     ))
+
+
+# ─────────────────────────────────────────────────
+# 公積金補貼活動費用
+# ─────────────────────────────────────────────────
+
+def _handle_fund_subsidy(event, line_bot_api, user_id, member, data, text):
+    if text == "取消":
+        clear_state(user_id)
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="已取消操作。")]
+        ))
+        return
+
+    if not text.isdigit():
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text=(
+                "⚠️ 請輸入數字金額\n"
+                "範例：5000\n\n"
+                "輸入「取消」可中止操作。"
+            ))]
+        ))
+        return
+
+    amount   = int(text)
+    event_id = data.get("event_id", "")
+    ev       = get_event(event_id)
+    event_name = ev.get("event_name", "") if ev else event_id
+    operator = member.get("display_name", "")
+
+    add_fund_transaction("支出", amount, f"活動補貼：{event_name}", operator, event_id)
+    clear_state(user_id)
+
+    split = calculate_split(event_id)
+    line_bot_api.reply_message(ReplyMessageRequest(
+        reply_token=event.reply_token,
+        messages=[event_detail_card(ev, split)]
+    ))
+
+    if GROUP_ID:
+        try:
+            line_bot_api.push_message(PushMessageRequest(
+                to=GROUP_ID,
+                messages=[fund_push_notification(
+                    "支出", amount, f"活動補貼：{event_name}",
+                    operator, split["total"]
+                )]
+            ))
+        except Exception as e:
+            logger.error(f"Fund subsidy push failed: {e}")
 
 
 # ─────────────────────────────────────────────────

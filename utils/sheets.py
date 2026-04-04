@@ -232,11 +232,24 @@ def mark_family_settled(event_id: str, family_unit: str, settled_by: str):
     return updated
 
 
+def get_event_fund_contribution(event_id: str) -> int:
+    """從公積金總帳取得活動的公積金補貼金額"""
+    ws = _get_sheet(SH_FUND)
+    rows = _normalize_records(ws.get_all_records(head=4))
+    return sum(
+        int(str(r.get("amount", 0)).replace(",", ""))
+        for r in rows
+        if r.get("ref_event_id") == event_id and r.get("type") == "支出"
+    )
+
+
 def calculate_split(event_id: str) -> dict:
-    """計算費用分攤"""
+    """計算費用分攤（扣除公積金補貼後均分）"""
     expenses = get_event_expenses(event_id)
+    fund_contribution = get_event_fund_contribution(event_id)
     if not expenses:
-        return {"total": 0, "families": [], "per_unit": 0, "settled_count": 0, "total_families": 0}
+        return {"total": 0, "net_total": 0, "families": [], "per_unit": 0,
+                "settled_count": 0, "total_families": 0, "fund_contribution": fund_contribution}
 
     families: dict[str, dict] = {}
     for exp in expenses:
@@ -250,7 +263,8 @@ def calculate_split(event_id: str) -> dict:
 
     total = sum(f["paid"] for f in families.values())
     count = len(families)
-    per_unit = round(total / count) if count else 0
+    net_total = max(0, total - fund_contribution)
+    per_unit = round(net_total / count) if count else 0
 
     result = []
     for name, data in families.items():
@@ -266,6 +280,8 @@ def calculate_split(event_id: str) -> dict:
     settled_count = sum(1 for f in result if f["is_settled"])
     return {
         "total": total,
+        "fund_contribution": fund_contribution,
+        "net_total": net_total,
         "per_unit": per_unit,
         "families": result,
         "settled_count": settled_count,

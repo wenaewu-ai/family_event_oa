@@ -243,6 +243,18 @@ def event_detail_card(event: dict, split: dict) -> FlexMessage:
                         _summary_box("每戶分攤", f"${split['per_unit']:,}", "#EAF4FB", "#1A5276"),
                     ]
                 },
+                *([{
+                    "type": "box", "layout": "horizontal",
+                    "backgroundColor": "#D5F5E3", "cornerRadius": "6px",
+                    "paddingAll": "8px",
+                    "contents": [
+                        {"type": "text", "text": "💰 公積金補貼",
+                         "size": "sm", "color": "#1E8449", "flex": 3},
+                        {"type": "text", "text": f"-${split['fund_contribution']:,}",
+                         "size": "sm", "color": "#1E8449",
+                         "flex": 2, "align": "end", "weight": "bold"},
+                    ]
+                }] if split.get("fund_contribution", 0) > 0 else []),
                 {"type": "separator"},
                 {"type": "text", "text": "各家結清狀況",
                  "weight": "bold", "size": "sm", "color": "#444444"},
@@ -263,19 +275,30 @@ def event_detail_card(event: dict, split: dict) -> FlexMessage:
             ]
         },
         "footer": {
-            "type": "box", "layout": "horizontal",
+            "type": "box", "layout": "vertical",
             "spacing": "sm", "paddingAll": "12px",
             "contents": [
                 {
-                    "type": "button", "style": "primary", "height": "sm",
-                    "flex": 1, "color": "#7B3F00",
-                    "action": {"type": "postback", "label": "📤 提交費用",
-                               "data": f"action=submit_expense&event_id={event['event_id']}"}
+                    "type": "box", "layout": "horizontal", "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "button", "style": "primary", "height": "sm",
+                            "flex": 1, "color": "#7B3F00",
+                            "action": {"type": "postback", "label": "📤 提交費用",
+                                       "data": f"action=submit_expense&event_id={event['event_id']}"}
+                        },
+                        {
+                            "type": "button", "style": "secondary", "height": "sm", "flex": 1,
+                            "action": {"type": "postback", "label": "✅ 標記結清",
+                                       "data": f"action=mark_settled&event_id={event['event_id']}"}
+                        },
+                    ]
                 },
                 {
-                    "type": "button", "style": "secondary", "height": "sm", "flex": 1,
-                    "action": {"type": "postback", "label": "✅ 標記結清",
-                               "data": f"action=mark_settled&event_id={event['event_id']}"}
+                    "type": "button", "style": "secondary", "height": "sm",
+                    "color": "#1E8449",
+                    "action": {"type": "postback", "label": "💰 公積金補貼",
+                               "data": f"action=fund_event_subsidy&event_id={event['event_id']}"}
                 },
             ]
         }
