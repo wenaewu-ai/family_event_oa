@@ -246,6 +246,20 @@ def mark_family_settled(event_id: str, family_unit: str, settled_by: str):
     return updated
 
 
+def join_split(event_id: str, family_unit: str, added_by: str) -> bool:
+    """讓家庭以 $0 費用加入分攤（系統寫入，防止重複加入）"""
+    existing = get_event_expenses(event_id)
+    if any(e.get("family_unit") == family_unit for e in existing):
+        return False  # 已在分攤名單中
+    ws = _get_sheet(SH_EXPENSES)
+    ws.append_row([
+        event_id, family_unit, added_by, "加入分攤",
+        0, "", now_str(),
+        "FALSE", "", ""
+    ])
+    return True
+
+
 def get_event_fund_contribution(event_id: str) -> int:
     """從公積金總帳取得活動的公積金補貼金額"""
     ws = _get_sheet(SH_FUND)

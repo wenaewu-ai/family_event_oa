@@ -188,15 +188,30 @@ def _row(label: str, value: str) -> dict:
 # 活動費用明細卡片
 # ─────────────────────────────────────────────────
 
-def event_detail_card(event: dict, split: dict, is_admin: bool = False) -> FlexMessage:
+def event_detail_card(event: dict, split: dict,
+                       is_admin: bool = False,
+                       family_unit: str = "") -> FlexMessage:
+    per_unit   = split.get("per_unit", 0)
+    in_split   = {f["family_unit"] for f in split["families"]}
+    is_active  = event.get("status") == "進行中"
+
     family_rows = []
     for f in split["families"]:
         if f["is_settled"]:
             bg, icon, text_color = "#D5F5E3", "✅", "#1E8449"
-            status_text = "已結清"
         else:
             bg, icon, text_color = "#FDEBD0", "⏳", "#CA6F1E"
-            status_text = "未結清"
+
+        balance = f["paid"] - per_unit
+        if balance > 0:
+            balance_text  = f"+${balance:,}"
+            balance_color = "#1E8449"
+        elif balance < 0:
+            balance_text  = f"-${abs(balance):,}"
+            balance_color = "#C0392B"
+        else:
+            balance_text  = "$0"
+            balance_color = "#888888"
 
         family_rows.append({
             "type": "box", "layout": "horizontal",
@@ -209,9 +224,9 @@ def event_detail_card(event: dict, split: dict, is_admin: bool = False) -> FlexM
                 {"type": "text", "flex": 2, "size": "sm",
                  "color": "#444444", "align": "end",
                  "text": f"${f['paid']:,}"},
-                {"type": "text", "flex": 2, "size": "xs",
-                 "color": text_color, "align": "end",
-                 "text": status_text},
+                {"type": "text", "flex": 2, "size": "sm",
+                 "color": balance_color, "align": "end", "weight": "bold",
+                 "text": balance_text},
             ]
         })
 
@@ -278,12 +293,21 @@ def event_detail_card(event: dict, split: dict, is_admin: bool = False) -> FlexM
             "type": "box", "layout": "vertical",
             "spacing": "sm", "paddingAll": "12px",
             "contents": [
-                {
+                # 提交費用：僅活動進行中顯示
+                *([{
                     "type": "button", "style": "primary", "height": "sm",
                     "color": "#7B3F00",
                     "action": {"type": "postback", "label": "📤 提交費用",
                                "data": f"action=submit_expense&event_id={event['event_id']}"}
-                },
+                }] if is_active else []),
+                # 加入分攤：活動進行中 + 該家庭尚未在名單內
+                *([{
+                    "type": "button", "style": "secondary", "height": "sm",
+                    "color": "#1A5276",
+                    "action": {"type": "postback", "label": "🙋 加入分攤",
+                               "data": f"action=join_split&event_id={event['event_id']}"}
+                }] if is_active and family_unit and family_unit not in in_split else []),
+                # 管理員按鈕
                 *([
                     {
                         "type": "box", "layout": "horizontal", "spacing": "sm",
@@ -303,9 +327,9 @@ def event_detail_card(event: dict, split: dict, is_admin: bool = False) -> FlexM
                     },
                     {
                         "type": "button", "style": "secondary", "height": "sm",
-                        "color": "#922B21" if event.get("status") == "進行中" else "#1E8449",
+                        "color": "#922B21" if is_active else "#1E8449",
                         "action": {"type": "postback",
-                                   "label": "🔒 關閉活動" if event.get("status") == "進行中" else "🔓 重新開啟",
+                                   "label": "🔒 關閉活動" if is_active else "🔓 重新開啟",
                                    "data": f"action=toggle_event_status&event_id={event['event_id']}"}
                     },
                 ] if is_admin else []),
