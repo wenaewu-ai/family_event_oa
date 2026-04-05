@@ -16,7 +16,7 @@ from utils.sheets import (
     get_fund_balance, get_events, get_event,
     get_event_expenses, get_family_expenses,
     calculate_split, mark_family_settled, get_event_fund_contribution,
-    update_event_status
+    update_event_status, join_split
 )
 from utils.flex_builder import (
     fund_balance_card, event_list_carousel,
@@ -57,6 +57,7 @@ def handle_postback(event, line_bot_api: MessagingApi):
         "create_event":         _create_event,
         "fund_event_subsidy":   _fund_event_subsidy,
         "toggle_event_status":  _toggle_event_status,
+        "join_split":           _join_split,
     }
 
     handler_fn = dispatch.get(action)
@@ -130,11 +131,13 @@ def _list_events(event, line_bot_api, user_id, member, data):
         ))
         return
 
-    # 補充 settled_count 資訊
+    # 補充即時計算的費用資料
     for ev in events:
         split = calculate_split(ev["event_id"])
-        ev["settled_count"]  = split["settled_count"]
-        ev["total_families"] = split["total_families"]
+        ev["settled_count"]   = split["settled_count"]
+        ev["total_families"]  = split["total_families"]
+        ev["total_amount"]    = split["total"]
+        ev["amount_per_unit"] = split["per_unit"]
 
     line_bot_api.reply_message(ReplyMessageRequest(
         reply_token=event.reply_token,
@@ -159,7 +162,11 @@ def _view_event(event, line_bot_api, user_id, member, data):
     split = calculate_split(event_id)
     line_bot_api.reply_message(ReplyMessageRequest(
         reply_token=event.reply_token,
-        messages=[event_detail_card(ev, split, is_admin=is_admin(user_id))]
+        messages=[event_detail_card(
+            ev, split,
+            is_admin=is_admin(user_id),
+            family_unit=member.get("family_unit", "")
+        )]
     ))
 
 
@@ -219,6 +226,14 @@ def _mark_settled(event, line_bot_api, user_id, member, data):
         return
 
     event_id = data.get("event_id", [""])[0]
+    ev = get_event(event_id)
+    if not ev or ev.get("status") != "已結束":
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="⚠️ 請先關閉活動（關帳）後，才能進行結清。")]
+        ))
+        return
+
     split    = calculate_split(event_id)
     unsettled = [f for f in split["families"] if not f["is_settled"]]
 
@@ -284,7 +299,11 @@ def _toggle_event_status(event, line_bot_api, user_id, member, data):
     split = calculate_split(event_id)
     line_bot_api.reply_message(ReplyMessageRequest(
         reply_token=event.reply_token,
-        messages=[event_detail_card(ev_updated, split, is_admin=True)]
+        messages=[event_detail_card(
+            ev_updated, split,
+            is_admin=True,
+            family_unit=member.get("family_unit", "")
+        )]
     ))
 
 
@@ -322,6 +341,58 @@ def _fund_event_subsidy(event, line_bot_api, user_id, member, data):
             "請輸入本次補貼金額（數字）：\n\n"
             "輸入「取消」可中止操作。"
         ))]
+    ))
+
+
+# ─────────────────────────────────────────────────
+# 加入分攤
+# ─────────────────────────────────────────────────
+
+def _join_split(event, line_bot_api, user_id, member, data):
+    event_id    = data.get("event_id", [""])[0]
+    family_unit = member.get("family_unit", "")
+
+    if not family_unit:
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="⚠️ 尚未設定家庭單位，請聯繫管理員。")]
+        ))
+        return
+
+    ev = get_event(event_id)
+    if not ev:
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="找不到該活動，請重新選擇。")]
+        ))
+        return
+
+    if ev.get("status") != "進行中":
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="⚠️ 活動已結束，無法加入分攤。")]
+        ))
+        return
+
+    added_by = member.get("display_name", user_id)
+    success  = join_split(event_id, family_unit, added_by)
+
+    split = calculate_split(event_id)
+    if success:
+        reply_text = f"✅ {family_unit} 已加入分攤，每戶分攤金額已更新。"
+    else:
+        reply_text = f"ℹ️ {family_unit} 已在分攤名單中。"
+
+    line_bot_api.reply_message(ReplyMessageRequest(
+        reply_token=event.reply_token,
+        messages=[
+            TextMessage(text=reply_text),
+            event_detail_card(
+                ev, split,
+                is_admin=is_admin(user_id),
+                family_unit=family_unit
+            )
+        ]
     ))
 
 

@@ -64,8 +64,14 @@ def handle_message(event, line_bot_api: MessagingApi):
             event_id    = parts[2]
             family_unit = parts[3]
             settled_by  = member.get("display_name", "")
-            count = mark_family_settled(event_id, family_unit, settled_by)
             ev = get_event(event_id)
+            if not ev or ev.get("status") != "已結束":
+                line_bot_api.reply_message(ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text="⚠️ 請先關閉活動（關帳）後，才能進行結清。")]
+                ))
+                return
+            count = mark_family_settled(event_id, family_unit, settled_by)
             event_name = ev.get("event_name", "") if ev else event_id
 
             line_bot_api.reply_message(ReplyMessageRequest(
