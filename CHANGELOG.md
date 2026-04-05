@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.3.0] - 2026-04-05
+
+### Added
+- 活動詳情卡片新增「📋 查看提交明細」按鈕，所有成員（非管理員專屬）均可查看本次活動所有家庭的費用提交紀錄
+- 新增 `event_all_expenses_card` 卡片，顯示所有家庭費用明細（自動過濾「加入分攤」零元佔位紀錄）
+
 ## [0.0.2.0] - 2026-04-05
 
 ### Added

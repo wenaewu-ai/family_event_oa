@@ -20,7 +20,8 @@ from utils.sheets import (
 )
 from utils.flex_builder import (
     fund_balance_card, event_list_carousel,
-    event_detail_card, my_expenses_card, settled_push_notification
+    event_detail_card, my_expenses_card, settled_push_notification,
+    event_all_expenses_card
 )
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ def handle_postback(event, line_bot_api: MessagingApi):
         "fund_event_subsidy":   _fund_event_subsidy,
         "toggle_event_status":  _toggle_event_status,
         "join_split":           _join_split,
+        "view_expenses":        _view_expenses,
     }
 
     handler_fn = dispatch.get(action)
@@ -420,6 +422,27 @@ def _my_records(event, line_bot_api, user_id, member, data):
     line_bot_api.reply_message(ReplyMessageRequest(
         reply_token=event.reply_token,
         messages=[my_expenses_card(event_name, event_id, family_unit, expenses)]
+    ))
+
+
+# ─────────────────────────────────────────────────
+# 查看活動提交明細（所有成員）
+# ─────────────────────────────────────────────────
+
+def _view_expenses(event, line_bot_api, user_id, member, data):
+    event_id = data.get("event_id", [""])[0]
+    ev = get_event(event_id)
+    if not ev:
+        line_bot_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text="找不到該活動，請重新選擇。")]
+        ))
+        return
+
+    expenses = get_event_expenses(event_id)
+    line_bot_api.reply_message(ReplyMessageRequest(
+        reply_token=event.reply_token,
+        messages=[event_all_expenses_card(ev, expenses)]
     ))
 
 
