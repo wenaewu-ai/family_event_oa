@@ -307,6 +307,12 @@ def event_detail_card(event: dict, split: dict,
                     "action": {"type": "postback", "label": "🙋 加入分攤",
                                "data": f"action=join_split&event_id={event['event_id']}"}
                 }] if is_active and family_unit and family_unit not in in_split else []),
+                # 查看提交明細：所有成員均可見
+                {
+                    "type": "button", "style": "secondary", "height": "sm",
+                    "action": {"type": "postback", "label": "📋 查看提交明細",
+                               "data": f"action=view_expenses&event_id={event['event_id']}"}
+                },
                 # 管理員按鈕
                 *([
                     {
@@ -441,6 +447,73 @@ def my_expenses_card(event_name: str, event_id: str,
         }
     }
     return _msg(f"👤 {family_unit} 費用紀錄", contents)
+
+
+# ─────────────────────────────────────────────────
+# 活動全部費用提交明細卡片
+# ─────────────────────────────────────────────────
+
+def event_all_expenses_card(event: dict, expenses: list[dict]) -> FlexMessage:
+    real = [e for e in expenses
+            if int(str(e.get("amount", 0)).replace(",", "")) > 0]
+    total = sum(int(str(e.get("amount", 0)).replace(",", "")) for e in real)
+
+    item_rows = []
+    for e in real:
+        item_rows.append({
+            "type": "box", "layout": "horizontal",
+            "backgroundColor": "#F8F9FA", "cornerRadius": "6px",
+            "paddingAll": "8px",
+            "contents": [
+                {"type": "text", "text": e.get("family_unit", ""),
+                 "size": "xs", "color": "#888888", "flex": 2},
+                {"type": "text", "text": e.get("item_name", ""),
+                 "size": "sm", "color": "#333333", "flex": 4, "wrap": True},
+                {"type": "text",
+                 "text": f"${int(str(e.get('amount', 0)).replace(',', '')):,}",
+                 "size": "sm", "color": "#333333",
+                 "flex": 2, "align": "end", "weight": "bold"},
+            ]
+        })
+
+    body_contents = item_rows if item_rows else [
+        {"type": "text", "text": "尚未提交任何費用",
+         "color": "#AAAAAA", "size": "sm", "align": "center"}
+    ]
+    body_contents = body_contents + [
+        {"type": "separator", "margin": "md"},
+        {
+            "type": "box", "layout": "horizontal", "margin": "md",
+            "contents": [
+                {"type": "text", "text": "合計", "size": "sm",
+                 "color": "#555555", "flex": 3, "weight": "bold"},
+                {"type": "text", "text": f"${total:,}", "size": "md",
+                 "color": "#1E3A5F", "flex": 2, "align": "end", "weight": "bold"},
+            ]
+        },
+    ]
+
+    event_name = event.get("event_name", "")
+    contents = {
+        "type": "bubble", "size": "mega",
+        "header": {
+            "type": "box", "layout": "vertical",
+            "backgroundColor": "#2E4057", "paddingAll": "14px",
+            "contents": [
+                {"type": "text", "text": f"📋 {event_name}　提交明細",
+                 "color": "#FFFFFF", "size": "lg", "weight": "bold"},
+                {"type": "text", "size": "xs", "margin": "xs",
+                 "color": "#B0BEC5",
+                 "text": f"共 {len(real)} 筆　日期：{event.get('event_date', '')}"},
+            ]
+        },
+        "body": {
+            "type": "box", "layout": "vertical",
+            "spacing": "xs", "paddingAll": "14px",
+            "contents": body_contents,
+        }
+    }
+    return _msg(f"📋 {event_name} 提交明細", contents)
 
 
 # ─────────────────────────────────────────────────
